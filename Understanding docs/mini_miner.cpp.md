@@ -1,0 +1,11 @@
+in the initializing function, for the constructor, first of all we lock the mempool instance, there are a lot of things going on in bitcoin, as best practice, we lock things that might otherwise cause race conditions
+
+after that we loop through the outpoints (this is in the constructing method as well), and then we check to see if a particular transaction is in the mempool, we do this by called the `GenTxid:Txid(outpoint.hash)`, if not in the mempool, we assume that it has already been mined in a block, which is why it is not in the mempool, and if it is, we do not have information about it and cannot use the data, so it simply pushes the amount and the output to the fees needed map and then continue (This is just a simple precheck to make sure that it has everything setup)
+
+we then define the ` m_requested_outpoints_by_txid` variable and then for each outpoint that is there, we assign the hash of the outpoint to the list of all the outpoints that have the same hash, this is so that the bump fee can be calculated well as same tx will have the same bump fee
+
+the next if statement, creates a pointer to a CTransaction object and then checks if there is already a conflicting transaction in the mempool, once we find it we assume that the person wants to replace this transaction, (perhaps because the user is trying to replace a transaction whose fees might not allow block inclusion), this only calculates bump fees, not replace by fee. We then initialize the descendants, with is a set of Mempool Entries `set<CTxMempoolEntry>`, and then it calculates the descendants, it calculates the dependencies between the ancestors and the descendants, since transactions in the mempool does not stay in isolation, the calculate descendants is needed to order these transactions, and then for the descendants, it it adds it to the `m_to_be_replaced` which is a set of the `Txid` to be replaced transactions
+
+the next line checks if in the operation above we were able to push the outpoints and hash to the map of the m_requested_outpoints_by_txid, meaning there are mempool calculations to be done, if not, then no need for this and it exits
+
+next we calculate the 
