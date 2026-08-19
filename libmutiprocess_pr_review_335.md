@@ -71,7 +71,7 @@ _why do we add this into another bracket? oh so it is a way to create a smaller 
 and then in the same `disconnect()` method, release the thread capabilities owned by the connection, and then destroy the network and close the stream. closing the stream is what makes the peer observe the disconnect
 
 
-thoughts? 
+*thoughts?* 
 
 first of all, i think this commit message is a bit too verbose in simple terms the commit this, before we disconnect by `delete connection`
 
