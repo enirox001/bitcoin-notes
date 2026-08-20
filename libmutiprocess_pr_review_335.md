@@ -482,17 +482,17 @@ Commit ACK
 **commit message**
 _a bit wordy commit message, i wonder if this can be made a bit succint?_
 
-- [ ] fix a race condition between a thread exiting after making an ipc call and a connection being destroyed by its onDisconnect handler on the event loop thread _i should be able to write a test to verify this_
-	- [ ] the race was between `~ThreadContext` destroying the thread-local request_threads/callback_thread maps with no locking
-	- [ ] and the `SetThread` cleanup function (run by `Connection::disconnect`) erasing entries from those maps on the event loop thread
-	- [ ] When the two ran concurrently, both could destroy the same `ProxyClient<Thread>` object
-	- [ ] The SetThread cleanup reset `m_disconnect_cb` just before `~ProxyClient<Thread>` checked it unsynchronized
-	- [ ] so the exiting loop map erase destroyed it too
-	- [ ] The double destruction consumed `m_context.cleanup_fns` on one threadm so the other never unregistered the `Connection::disconnect` then invoked that callback on the thread freed map node
-- [ ] fix by making the entry removal the synchronization point deciding which side destroys each `ProxyClient<Thread>`
-	- [ ] Add an explicit `~ThreadContext` that removes map entries one at a time under `Waiter::m_mutext` and destroys each removed node rather than releasing the mutex instead of destroying the maps unlocked
-	- [ ] Change the `SetThread` cleanup function to look its entry up by connection key under the Waiter mutex instead of dereferencig the captured map iterator, extract it, and destroy the nde outside the lock, folowing the same pattern as `PassField` already uses for mp.Context arguments, if the entry is gone, the owning thread extracted if first and is responsible for destroying it
-	- [ ] guard the removesyncCleanup call in `~ProxyClient<Thread>` with a `m_context.connection` check, because when the entry was extracted by the ThreadContext destructor first, a concurrent disconnect still runs both the `SetThread` cleanup and the ProxyClientBase disconnect callback, leaving `m_disconnect_cb` set but pointing at a spliced out list iterator that must not be passed to removeSyncCleanup. The disconnect callback nulls `m_context.connection`, and posted functions cannot interleave with `Connection::disconnect` on the event loop thread, so a null connection reliably indicaes this case
+- [x] fix a race condition between a thread exiting after making an ipc call and a connection being destroyed by its onDisconnect handler on the event loop thread _i should be able to write a test to verify this_
+	- [x] the race was between `~ThreadContext` destroying the thread-local request_threads/callback_thread maps with no locking
+	- [x] and the `SetThread` cleanup function (run by `Connection::disconnect`) erasing entries from those maps on the event loop thread
+	- [x] When the two ran concurrently, both could destroy the same `ProxyClient<Thread>` object
+	- [x] The SetThread cleanup reset `m_disconnect_cb` just before `~ProxyClient<Thread>` checked it unsynchronized
+	- [x] so the exiting loop map erase destroyed it too
+	- [x] The double destruction consumed `m_context.cleanup_fns` on one threadm so the other never unregistered the `Connection::disconnect` then invoked that callback on the thread freed map node
+- [x] fix by making the entry removal the synchronization point deciding which side destroys each `ProxyClient<Thread>`
+	- [x] Add an explicit `~ThreadContext` that removes map entries one at a time under `Waiter::m_mutext` and destroys each removed node rather than releasing the mutex instead of destroying the maps unlocked
+	- [x] Change the `SetThread` cleanup function to look its entry up by connection key under the Waiter mutex instead of dereferencig the captured map iterator, extract it, and destroy the nde outside the lock, folowing the same pattern as `PassField` already uses for mp.Context arguments, if the entry is gone, the owning thread extracted if first and is responsible for destroying it
+	- [x] guard the removesyncCleanup call in `~ProxyClient<Thread>` with a `m_context.connection` check, because when the entry was extracted by the ThreadContext destructor first, a concurrent disconnect still runs both the `SetThread` cleanup and the ProxyClientBase disconnect callback, leaving `m_disconnect_cb` set but pointing at a spliced out list iterator that must not be passed to removeSyncCleanup. The disconnect callback nulls `m_context.connection`, and posted functions cannot interleave with `Connection::disconnect` on the event loop thread, so a null connection reliably indicaes this case
 The rase is long standing on master via connections created by `ConnectStrean`m whose onDisconnect handler delets the client connection on the eventloop thread when the peer disconnects while an existing thread may be running `~ThreadContext`
 
 This commit is fixing a race condition where two threads could try to delete the same thread client object.
