@@ -523,3 +523,113 @@ but the new commit says
 It also says releasing the waiter mutex avoids locking the Waiter mutex before the Eventloop mutex, these rules cannot both be correct.
 
 I think an actual order should be identified and updated here
+
+Russell responded saying 
+
+"Hmm, this is an interesting finding. But if there is a bug here, it seems like a pre-existing one, not something caused by this change or made worse by it.
+
+You're saying if a remote disconnect happens first, and the m_network->onDisconnect() callback executes, but the kj::evalLater callback inside it does not execute yet, and if within that interval, the local process decided to delete the connection, then the connection could be deleted twice.
+
+This does seem like it might be possible, and I'd want to look into it a little more and write a test. I'd still be inclined to save a fix for a different PR, and I believe as you pointed out #336 might fix this."[reply](https://github.com/bitcoin-core/libmultiprocess/pull/335#discussion_r3825422809)
+
+_thoughts_
+
+this is not the point i intended to pass across, it was more 
+- remote callback queued
+- local code calls disconnect(), intending to keep the connection alive
+- local code retains the connection pointer for waitDrained
+- queued callback erases and destroys the Connection
+- shutdown code uses the dangling connection pointer
+
+it is not a 
+- local code deletes the connections
+- queued callback deletes it again
+
+But this led me to ask could it be possible for the actual point thought of by Russell be justified? Could it be possible for the connection object to be deleted twice, once by the object and another time by a queued callback?
+
+so i added a ttest to verify this, first of all, i added a hook to be called before an onDIsconnect callback is queued on the eventloop
+
+```diff --git a/include/mp/proxy-io.h b/include/mp/proxy-io.h
+index 1f77b26..100bd10 100644
+--- a/include/mp/proxy-io.h
++++ b/include/mp/proxy-io.h
+@@ -378,6 +378,9 @@ public:
+
+     //! Hook called on the event loop thread when a client has disconnected.
+     std::function<void()> testing_hook_disconnected;
++
++    //! Hook called before an onDisconnect callback is queued on the event loop.
++    std::function<void()> testing_hook_before_on_disconnect_queued;
+ };
+
+ //! Single element task queue used to handle recursive capnp calls. (If the
+@@ -577,7 +580,12 @@ public:
+         // to the EventLoop TaskSet to avoid "Promise callback destroyed itself"
+         // error in the typical case where f deletes this Connection object.
+         m_on_disconnect->add(m_network->onDisconnect().then(
+-            [f = std::forward<F>(f), this]() mutable { m_loop->m_task_set->add(kj::evalLater(kj::mv(f))); }));
++            [f = std::forward<F>(f), this]() mutable {
++                if (m_loop->testing_hook_before_on_disconnect_queued) {
++                    m_loop->testing_hook_before_on_disconnect_queued();
++                }
++                m_loop->m_task_set->add(kj::evalLater(kj::mv(f)));
++            }));
+     }
+
+     EventLoopRef m_loop;
+```
+
+and then wrote a test that cancels an already queued onDisconnect callback
+
+```diff --git a/test/mp/test/test.cpp b/test/mp/test/test.cpp
+index 5bccb86..4fd906c 100644
+--- a/test/mp/test/test.cpp
++++ b/test/mp/test/test.cpp
+@@ -291,6 +291,42 @@ KJ_TEST("Calling IPC method after server connection is closed")
+     EXPECT_EXCEPTION(foo->add(1, 2), "IPC client method call interrupted by disconnect.");
+ }
+
++KJ_TEST("Destroying a connection cancels an already queued onDisconnect callback")
++{
++    std::promise<bool> result;
++    std::thread loop_thread{[&] {
++        EventLoop loop("mptest", [](mp::LogMessage) {});
++        auto pipe = loop.m_io_context.provider->newTwoWayPipe();
++        auto server_connection =
++            std::make_unique<Connection>(loop, kj::mv(pipe.ends[0]), [&](Connection& connection) {
++                return capnp::Capability::Client(kj::heap<ProxyServer<messages::FooInterface>>(
++                    std::make_shared<FooImplementation>(), connection));
++            });
++        auto client_connection = std::make_unique<Connection>(loop, kj::mv(pipe.ends[1]));
++        auto client = client_connection->m_rpc_system->bootstrap(ServerVatId().vat_id).castAs<messages::FooInterface>();
++        bool callback_ran{false};
++
++        server_connection->onDisconnect([&] { callback_ran = true; });
++        loop.testing_hook_before_on_disconnect_queued = [&] {
++            loop.m_task_set->add(kj::evalLater([&] {
++                server_connection.reset();
++                loop.m_task_set->add(kj::evalLater([&] {
++                    client = nullptr;
++                    client_connection.reset();
++                    result.set_value(callback_ran);
++                }));
++            }));
++        };
++
++        loop.m_task_set->add(kj::evalLater([&] { client_connection->disconnect(); }));
++        loop.loop();
++    }};
++
++    const bool callback_ran{result.get_future().get()};
++    loop_thread.join();
++    KJ_EXPECT(!callback_ran);
++}
++
+ KJ_TEST("Calling IPC method and disconnecting during the call")
+ {
+     TestSetup setup{/*client_owns_connection=*/false}
+```
+
+and sure as rain? the test fails
+
+this shows that onDisconnect callback can execute after its owning `Connection` has already been destroyed
