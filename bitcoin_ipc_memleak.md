@@ -227,7 +227,8 @@ sjors
 
 #### current research paths
 
-preliminary: get a bitcoin core mainnet node synced and pruned up to 100gb of storage
+preliminary: get a bitcoin core mainnet node synced and pruned up to 100gb of storage - might have to work around this
+- [ ] simulate a node with high mempool activity (unsure what this looks like because i dont knwo what high mempool activity looks like)
 - [ ] test the bitcoin core against different clients and measure the memory change (determine if there is one which doesnt or does not accumulate as much)
 	- [ ] check for places spots where blocks are found like sjors mentioned
 	- [ ] use the template memory management to do the same thing to see the different
@@ -243,4 +244,5 @@ preliminary: get a bitcoin core mainnet node synced and pruned up to 100gb of st
 - [ ] build a lean client that connects to the bitcoin core server to see if we have an issue
 	- [ ] the point is to try and isolate the environment where the problem might be originating from
 
-_a bit slower approach to solving the problem, and it could take longer time to debug and potentially find the solution, but the point is to find the place where the problem originates, and then perhaps use that knowledge to trigger a faster reproduction of the said problem _
+*a bit slower approach to solving the problem, and it could take longer time to debug and potentially find the solution, but the point is to find the place where the problem originates, and then perhaps use that knowledge to trigger a faster reproduction of the said problem*
+
