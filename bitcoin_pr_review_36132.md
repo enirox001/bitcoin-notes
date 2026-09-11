@@ -42,3 +42,11 @@ I would understand the rationale behind this change, having the node return a li
 For my understanding, is there a current production path where these lookups run without the mempool, given that IPC `makeMining()` waits for the chainstate to load? Or is this primarily keeping the interface contract consistent for internal callers and tests?"
 
 waiting for response would proceed once that is given
+
+response was provided, but not by l0rinc, but rather by Sjors
+
+he said 
+
+"@enirox001 I also suspect it can't happen."
+
+so this means that there might not be an actionable environment where this can actually happen

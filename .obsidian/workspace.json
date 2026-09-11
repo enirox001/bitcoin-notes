@@ -27,15 +27,16 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "bitcoin_ipc_memleak.md",
+                "file": "libmultiprocess_pr_review_342.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "bitcoin_ipc_memleak"
+              "title": "libmultiprocess_pr_review_342"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -97,8 +98,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "ca3342a0b2a79e03",
@@ -203,13 +203,13 @@
       "bases:Create new base": false
     }
   },
-  "active": "c1d862ee1b46cf20",
+  "active": "55e1ebba51189ea2",
   "lastOpenFiles": [
     "libmutiprocess_pr_review_335.md",
     "libmultiprocess_pr_review_361.md",
-    "bitcoin_ipc_memleak.md",
-    "Untitled.md",
+    "libmultiprocess_pr_review_342.md",
     "bitcoin_pr_review_36132.md",
-    "libmultiprocess_pr_review_342.md"
+    "bitcoin_ipc_memleak.md",
+    "Untitled.md"
   ]
 }
